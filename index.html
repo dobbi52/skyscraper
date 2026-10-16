@@ -410,7 +410,7 @@ body[data-lv="hard"] { --lv: var(--pink); }
     </div>
     <div class="scenecard"><div id="cityScene" class="scene"></div></div>
     <section class="dex" id="dex" aria-label="도시 도감"></section>
-    <div class="backrow"><button class="btn gold" id="btnBack" type="button">퍼즐로 돌아가기</button> <button class="btn" id="btnTeacher" type="button" style="margin-left:12px">교사용</button> <span id="demoBar" style="margin-left:12px"></span></div>
+    <div class="backrow"><button class="btn gold" id="btnBack" type="button">퍼즐로 돌아가기</button></div>
   </main>
 </div>
 
@@ -702,7 +702,6 @@ function generatePuzzle(n, seed, level) {
   var AA = window.ArcadeAuth || null;
   var SAVE_API = 'https://script.google.com/macros/s/AKfycbw8qCoFR_adI3EZppglIEOAO053aWrcfKMY3N5dR-uU-8i4VcZjIUFhwrUQNA7gjw5feQ/exec';   /* 기록 저장 서버: Apps Script 웹 앱 주소 (server/Code.gs). 비우면 이 기기에만 저장 */
   var CLIENT_VER = 1;
-  var TEACHERS = ['강낭콩'];   /* 교사용 시험 버튼이 보이는 닉네임 */
   var me = null, dirty = false, pushT = 0, sync = '';
   function ukey(n) { return KEY + ':' + n; }
   function freshSave() { return { v: 1, stars: 0, daily: {}, seenHelp: false, prac: { total: 0, hard: 0 }, bricks: 0, t: 0, rev: 0 }; }
@@ -725,7 +724,7 @@ function generatePuzzle(n, seed, level) {
     if (AA) return freshSave();
     try { return normalize(JSON.parse(localStorage.getItem(KEY))); } catch (e) { return freshSave(); }
   }
-  var DEMO = location.hash === '#demo';
+  var DEMO = false;
   var save = loadSave();
   function demoFill() { save.stars = 70; save.bricks = 40; save.prac = { total: 100, hard: 10 }; }
   if (DEMO) demoFill();
@@ -737,7 +736,6 @@ function generatePuzzle(n, seed, level) {
     try { localStorage.setItem(me ? ukey(me.nick) : KEY, JSON.stringify(save)); } catch (e) {}
     if (me && SAVE_API) { dirty = true; clearTimeout(pushT); pushT = setTimeout(push, 1500); }
   }
-  function isTeacher() { return !AA || (me && TEACHERS.indexOf(me.nick) >= 0); }
   function playerId() { return me ? me.nick : (save.uid || 'guest'); }
 
   /* ---------- 서버 ---------- */
@@ -1124,21 +1122,6 @@ function generatePuzzle(n, seed, level) {
       collect('star', '★ ', '건물', '오늘의 퍼즐로 별을 모아요', '★ ' + s.stars, ownB, '건물', '★', s.stars, s.prevAt, s.nextAt, '모두 지었어요!') +
       collect('brick', '<img src="images/brick.png" alt="">', '꾸미기', '연습 퍼즐로 벽돌을 모아요 (하루 ' + CONFIG.BRICK_DAILY_MAX + '개)', '벽돌 ' + s.bricks, ownP, '꾸미기', '벽돌', s.bricks, prevP, nextP ? nextP.at : null, '모두 모았어요!') +
       group('special', '✦ ', '특별 장식', '연습을 많이 하면 열려요', '연습 ' + save.prac.total + '판', gSpecial);
-    $('btnTeacher').hidden = DEMO || !isTeacher();
-    var db = $('demoBar');
-    if (DEMO && db) {
-      db.innerHTML = '<span style="color:var(--muted);font-size:14px">시험용</span> <button type="button" class="btn" data-d="star">★ +5</button> <button type="button" class="btn" data-d="brick">벽돌 +5</button> <button type="button" class="btn" data-d="prac">연습 +10</button> <button type="button" class="btn" data-d="reset">모두 0</button>';
-      db.querySelectorAll('button').forEach(function (b) {
-        b.addEventListener('click', function () {
-          var dd = b.dataset.d;
-          if (dd === 'star') save.stars += 5;
-          else if (dd === 'brick') save.bricks += 5;
-          else if (dd === 'prac') { save.prac.total += 10; save.prac.hard += 2; }
-          else { save.stars = 0; save.bricks = 0; save.prac = { total: 0, hard: 0 }; save.seen = []; }
-          renderAll();
-        });
-      });
-    }
   }
 
   function renderAll() {
@@ -1569,7 +1552,6 @@ function generatePuzzle(n, seed, level) {
   $('btnCity').addEventListener('click', function () { setView('city'); });
   $('btnBack').addEventListener('click', function () { setView('puzzle'); });
   $('btnHelp').addEventListener('click', openHelp);
-  $('btnTeacher').addEventListener('click', function () { DEMO = true; demoFill(); save.seen = sceneIds(cityState()); renderAll(); toast('교사용 시험 모드: 별과 벽돌은 저장되지 않아요'); });
 
   document.addEventListener('keydown', function (e) {
     if (e.key === 'Escape') { if (els.modal.hidden && G && G.brush) { G.brush = null; renderSide(); return; } closeModal(); return; }
