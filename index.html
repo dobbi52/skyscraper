@@ -189,6 +189,9 @@ body[data-lv="hard"] { --lv: var(--pink); }
 .pbtn img { display: block; width: auto; }
 .pbtn b { font-family: var(--f-pixel); font-size: 12px; font-weight: 400; }
 .pbtn.done { opacity: 0.45; }
+#btnErase.brush { background: #fff0b3; border-color: var(--gold); box-shadow: 0 0 0 3px var(--gold), 0 4px 0 var(--ink); }
+.padrow.nudge .pbtn { animation: nudge 0.45s steps(3) 2; }
+@keyframes nudge { 50% { transform: translateY(-6px); border-color: var(--gold); } }
 .pbtn.brush { background: #fff0b3; border-color: var(--gold); box-shadow: 0 0 0 3px var(--gold), 0 4px 0 var(--ink); transform: translateY(-3px); opacity: 1; }
 .tools { display: flex; gap: 8px; }
 .tools .btn { flex: 1; padding: 0 6px; font-size: 15px; }
@@ -391,7 +394,7 @@ body[data-lv="hard"] { --lv: var(--pink); }
         <div class="padrow" id="padRow"></div>
         <div class="tools">
           <button class="btn" id="btnMemo" type="button" aria-pressed="false">메모</button>
-          <button class="btn solid" id="btnErase" type="button">지우기</button>
+          <button class="btn solid" id="btnErase" type="button" aria-pressed="false">지우개</button>
           <button class="btn solid" id="btnHint" type="button">힌트</button>
         </div>
         <button class="btn green" id="btnCheck" type="button">정답 확인</button>
@@ -1070,6 +1073,7 @@ function generatePuzzle(n, seed, level) {
     els.memo.className = 'btn' + (G.memoOn ? ' on' : '');
     els.memo.textContent = G.memoOn ? '메모 켜짐' : '메모';
     els.memo.disabled = locked; els.erase.disabled = locked; els.check.disabled = locked;
+    els.erase.classList.toggle('brush', G.brush === 'erase'); els.erase.setAttribute('aria-pressed', String(G.brush === 'erase'));
     els.hint.disabled = locked || G.hints <= 0;
     els.hint.textContent = '힌트 ' + G.hints;
     els.pad.querySelectorAll('button').forEach(function (b) { b.disabled = locked; });
@@ -1495,7 +1499,7 @@ function generatePuzzle(n, seed, level) {
       '<li><span class="tk">1</span><span>단서가 <b>1</b>이면 바로 앞 칸이 <b>5층</b>이에요.</span></li>' +
       '<li><span class="tk">5</span><span>단서가 <b>5</b>면 <b>1, 2, 3, 4, 5층</b> 차례로 서요.</span></li>' +
       '<li><span class="tk given"></span><span>진한 노란 칸은 처음부터 놓인 건물이에요. 여기서 시작해요.</span></li>' +
-      '<li><span class="tk"><img src="images/p3.png" alt="" style="height:22px;width:auto"></span><span>아래에서 건물을 고르면 칸을 누를 때마다 바로 놓여요. 같은 칸을 한 번 더 누르면 지워져요.</span></li>' +
+      '<li><span class="tk"><img src="images/p3.png" alt="" style="height:22px;width:auto"></span><span>아래에서 건물을 먼저 고르고 칸을 누르면 놓여요. 같은 칸을 한 번 더 누르거나 지우개를 골라 누르면 지워져요.</span></li>' +
       '<li><span class="tk memo">메모</span><span>헷갈리면 메모를 켜고 후보 숫자를 적어 두세요.</span></li></ul>';
     var p3 = '<ul class="tips">' +
       '<li><span class="tk heart">♥</span><span>오늘의 퍼즐: 정답 확인이 틀리면 하트가 줄어요.</span></li>' +
@@ -1535,23 +1539,30 @@ function generatePuzzle(n, seed, level) {
     var cell = e.target.closest('.cell');
     if (!cell || !canEdit()) return;
     var r = +cell.dataset.r, c = +cell.dataset.c;
-    if (G.brush) { G.sel = [r, c]; G.selFresh = false; setValue(G.brush); }
-    else { selectCell(r, c, false); G.selFresh = true; }
+    if (!G.brush) { nudgePad(); return; }
+    G.sel = [r, c];
+    if (G.brush === 'erase') eraseCell(); else setValue(G.brush);
   });
-  /* 건물 버튼: 붓처럼 골라 두고 칸을 누르면 바로 놓인다. 칸을 먼저 고른 경우에는 그 칸에도 바로 넣는다. */
+  /* 놓는 방법은 하나: 아래에서 건물(또는 지우개)을 골라 두고 칸을 누른다 */
+  var brushTip = false;
   function pickBrush(v) {
     if (!canEdit()) return;
-    if (G.brush === v) { G.brush = null; renderSide(); return; }
-    G.brush = v;
-    if (G.sel && G.selFresh) { G.selFresh = false; setValue(v); }
-    else { renderSide(); toast(v + '층을 골랐어요. 칸을 누르면 바로 놓여요'); }
+    G.brush = G.brush === v ? null : v;
+    renderSide();
+    if (G.brush && !brushTip) { brushTip = true; toast(v === 'erase' ? '지우개를 골랐어요. 칸을 누르면 지워져요' : v + '층을 골랐어요. 칸을 누르면 바로 놓여요'); }
+  }
+  function nudgePad() {
+    toast('먼저 아래에서 건물을 골라 주세요');
+    var p = els.pad;
+    p.classList.remove('nudge'); void p.offsetWidth; p.classList.add('nudge');
+    setTimeout(function () { p.classList.remove('nudge'); }, 900);
   }
   els.pad.addEventListener('click', function (e) {
     var b = e.target.closest('.pbtn');
     if (b) pickBrush(+b.dataset.v);
   });
   els.memo.addEventListener('click', function () { if (canEdit()) { G.memoOn = !G.memoOn; renderSide(); } });
-  els.erase.addEventListener('click', eraseCell);
+  els.erase.addEventListener('click', function () { pickBrush('erase'); });
   els.hint.addEventListener('click', useHint);
   els.check.addEventListener('click', checkAnswer);
   els.mini.addEventListener('click', function () { setView('city'); });
